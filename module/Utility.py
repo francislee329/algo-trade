@@ -20,7 +20,7 @@ def is_stop_lost(transaction, current_price, stop_lost_rate):
     return False
 
 
-def buy_the_dip(data, stop_lost_rate):
+def build_transaction(data, stop_lost_rate):
     """
     data : input data is indicators signals 
     stop_lost_rate : stop lost rate. eg: 0.1 = stop loss if the stock drop 10%
