@@ -13,26 +13,28 @@ import logging
 import time
 import sys
 import configparser
-import json 
+import json
 from multiprocessing import Pool
+
 logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger("main")
 
+
 def main():
     # config
-    IS_OPTIMIZE = False
+    IS_OPTIMIZE = True
     CAPITAL = 10000
     STOP_LOST_RATE = 0.9  # 0.1 = 10% stop loss
-    stock_tick = "7200.HK"
-    start_date = "2021-01-01"
+    stock_tick = "TQQQ"
+    start_date = "2021-05-01"
     # end_date = "2017-03-26"
     # start_date = "2017-03-26"
     end_date = datetime.now().strftime("%Y-%m-%d")
 
     if IS_OPTIMIZE:
-        upper_thresholds = [i for i in range(80, 100, 2)] # in percent 
-        lower_thresholds = [i for i in range(10, 30, 2)] # in percent 
-        periods = [i for i in range(7, 23, 2)] # in days 
+        upper_thresholds = [i for i in range(80, 100, 2)]  # in percent
+        lower_thresholds = [i for i in range(10, 30, 2)]  # in percent
+        periods = [i for i in range(7, 23, 2)]  # in days
     else:
         # Optimal parameters
         periods, lower_thresholds, upper_thresholds = get_stock_config(stock_tick)
@@ -40,19 +42,20 @@ def main():
     # Process
     MAX_PL = 0
     COUNT = 0
-    
+
     stock = Stock.Stock(stock_tick, start_date, end_date,)  # init
-    # Loop all combination 
+    # Loop all combination
     for period in periods:
         for lower_threshold in lower_thresholds:
             for upper_threshold in upper_thresholds:
-                
+
                 print(f"Period: {period}; Lower Threshold: {lower_threshold}; Upper Threshold: {upper_threshold}")
-                # Run strategy 
-                trade_plan = stock.strategy_lowBuy(period,lower_threshold,upper_threshold)
-                # transaction 
+                # Run strategy
+                trade_plan, transaction, profit_loss = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+                trade_plan = stock.strategy_lowBuy(period, lower_threshold, upper_threshold)
+                # transaction
                 transaction, profit_loss = Utility.build_transaction(trade_plan, STOP_LOST_RATE)
-                
+
                 stock_data = stock.get_data()
                 COUNT += 1
 
@@ -93,9 +96,9 @@ def cal_yearly_return(start_date, end_date, all_profit_percent):
 
 
 def get_stock_config(stock_tick):
-    try: 
+    try:
         config = configparser.ConfigParser()
-        config.read('parameters.ini')
+        config.read("parameters.ini")
         period = json.loads(config[stock_tick]["period"])
         lower_threshold = json.loads(config[stock_tick]["lower_threshold"])
         upper_threshold = json.loads(config[stock_tick]["upper_threshold"])
@@ -111,6 +114,6 @@ if __name__ == "__main__":
     count = main()
     end = datetime.now()
     print("end Time =", end.strftime("%H:%M:%S"))
-    print(f"--- {(end-start).seconds/60} min ---")
-    print(f"--- {((end-start).seconds)/count} seconds ---")
+    print(f"--- {(end-start).seconds/60} m ---")
+    print(f"--- {((end-start).seconds)/count} s @loop ---")
 
