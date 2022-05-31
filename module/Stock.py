@@ -16,7 +16,7 @@ class Stock:
         self.data = self.data.rename(columns={"Adj Close": "Adj_Close"})
         self.data = self.data.dropna()
 
-    def preprocessing_data(self, period):
+    def preprocessing_data(self, period: int):
         if len(self.data) == 0:
             raise ("DOWNLOAD DATA ERROR")
         else:
@@ -59,7 +59,7 @@ class Stock:
                 prices.append(price)
                 index_list.append(idx)
 
-    def plan_strategy_LowBuy(self, lower_threshold: int, upper_threshold: int):
+    def strategy_LowBuy(self, lower_threshold: int, upper_threshold: int):
         _buy_RSI = self.data["RSI"] < lower_threshold
         _buy_SO = (
             (self.data["K"] < lower_threshold) & (self.data["D"] < lower_threshold) & (self.data["K"] < self.data["D"])
@@ -94,11 +94,8 @@ class Stock:
 
     def strategy_lowBuy(self, period: int, lower_threshold: int, upper_threshold: int):
         self.preprocessing_data(period)
-        trade_plan = self.plan_strategy_LowBuy(lower_threshold, upper_threshold)
+        trade_plan = self.strategy_LowBuy(lower_threshold, upper_threshold)
         return trade_plan
-
-    def get_tradeing_plan(self):
-        return self.plan
 
     def get_data(self):
         return self.data

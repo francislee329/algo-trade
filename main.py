@@ -22,7 +22,7 @@ logger = logging.getLogger("main")
 
 def main():
     # config
-    IS_OPTIMIZE = True
+    IS_OPTIMIZE = False
     CAPITAL = 10000
     STOP_LOST_RATE = 0.9  # 0.1 = 10% stop loss
     stock_tick = "TQQQ"
