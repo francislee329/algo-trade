@@ -1,7 +1,6 @@
 from module import TA
 from module import Stock
 from module import Utility
-from module import Plot
 import talib as ta
 import pandas as pd
 import numpy as np
@@ -14,15 +13,14 @@ import time
 import sys
 import configparser
 import json
-from multiprocessing import Pool
-
+from joblib import Parallel, delayed
 logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger("main")
 
 
 def main():
     # config
-    IS_OPTIMIZE = False
+    IS_OPTIMIZE = True
     CAPITAL = 10000
     STOP_LOST_RATE = 0.9  # 0.1 = 10% stop loss
     stock_tick = "TQQQ"
@@ -30,7 +28,8 @@ def main():
     # end_date = "2017-03-26"
     # start_date = "2017-03-26"
     end_date = datetime.now().strftime("%Y-%m-%d")
-
+    stock = Stock.Stock(stock_tick, start_date, end_date,)  # init
+    
     if IS_OPTIMIZE:
         upper_thresholds = [i for i in range(80, 100, 2)]  # in percent
         lower_thresholds = [i for i in range(10, 30, 2)]  # in percent
@@ -39,53 +38,71 @@ def main():
         # Optimal parameters
         periods, lower_thresholds, upper_thresholds = get_stock_config(stock_tick)
 
-    # Process
-    MAX_PL = 0
-    COUNT = 0
-
-    stock = Stock.Stock(stock_tick, start_date, end_date,)  # init
-    # Loop all combination
+    # Add all combination to the queue 
+    delayed_funcs = []
     for period in periods:
         for lower_threshold in lower_thresholds:
             for upper_threshold in upper_thresholds:
+                logging.info(f"Period: {period}; Lower Threshold: {lower_threshold}; Upper Threshold: {upper_threshold}")
+                delayed_funcs.append(delayed(training)(stock, period, lower_threshold, upper_threshold, CAPITAL, STOP_LOST_RATE))
+    
+    # Multi processing 
+    q = Parallel(n_jobs=-1, verbose=5, prefer="processes")(delayed_funcs)
+    
+    # Evaluate the performance
+    performance = pd.DataFrame(q)
+    evaluate_performance(performance)
 
-                print(f"Period: {period}; Lower Threshold: {lower_threshold}; Upper Threshold: {upper_threshold}")
-                # Run strategy
-                trade_plan, transaction, profit_loss = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-                trade_plan = stock.strategy_lowBuy(period, lower_threshold, upper_threshold)
-                # transaction
-                transaction, profit_loss = Utility.build_transaction(trade_plan, STOP_LOST_RATE)
-
-                stock_data = stock.get_data()
-                COUNT += 1
-
-                if len(transaction) > 0:
-                    all_profit_rate = 1 + profit_loss / CAPITAL
-                    yearly_profit = cal_yearly_return(start_date, end_date, all_profit_rate)
-                    print(f"PL: {profit_loss}. PL Rate: {all_profit_rate}. Yearly PL Rate: {yearly_profit}")
-                    if profit_loss > MAX_PL:
-                        MAX_PL = profit_loss
-                        best_period = period
-                        best_upper = upper_threshold
-                        best_lower = lower_threshold
-                        print(f"max PL: {profit_loss}")
-
-                    if not IS_OPTIMIZE:
-                        transaction.to_csv("./output/transaction.csv")
-                        Plot.strategy(stock_tick, stock_data, transaction)
-                        Plot.indicators_signals(
-                            stock_tick, stock_data, trade_plan, upper_threshold, lower_threshold,
-                        )
-
-    if IS_OPTIMIZE:
+def training(stock:Stock, period:int, lower_threshold:int, upper_threshold:int,CAPITAL:int, STOP_LOST_RATE:float): 
+    start_date = stock.get_start_date()
+    end_date = stock.get_end_date()
+    # Run strategy
+    trade_plan, transaction, profit_loss = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+    trade_plan = stock.strategy_lowBuy(period, lower_threshold, upper_threshold)
+    # transaction
+    transaction, profit_loss = Utility.build_transaction(trade_plan, STOP_LOST_RATE)
+    
+    if len(transaction) > 0:
         all_profit_rate = 1 + profit_loss / CAPITAL
         yearly_profit = cal_yearly_return(start_date, end_date, all_profit_rate)
-        print(f"The optimal parameters: ")
-        print(f"---Return: {MAX_PL}. Profit Rate: {all_profit_rate}%. Yearly profit: {yearly_profit}")
-        print(f"---Period: {best_period}, lower_threshold: {best_lower}, upper_threshold:{best_upper}")
+        logging.info(f"PL: {profit_loss}. PL Rate: {all_profit_rate}. Yearly PL Rate: {yearly_profit}")
+        
+        new_dict = {
+            "lower_threshold": lower_threshold,
+            "upper_threshold": upper_threshold,
+            "period": period,
+            "PL": profit_loss,
+            "PL_rate": all_profit_rate,
+            "PL_rate_yearly": yearly_profit,
+        }
+    else: 
+        new_dict = {
+            "lower_threshold": lower_threshold,
+            "upper_threshold": upper_threshold,
+            "period": period,
+            "PL": 0,
+            "PL_rate": 0,
+            "PL_rate_yearly": 0,
+        }
+    return new_dict
 
-    return COUNT
 
+def evaluation(transaction:pd.DataFrame, performance:pd.DataFrame): 
+    transaction.to_csv("./output/transaction.csv")
+    performance = performance.sort_values(by=['PL'])
+    performance.to_csv("./output/performance.csv")
+
+def evaluate_performance( performance:pd.DataFrame): 
+    performance = performance.sort_values(by=['PL'],ascending=False)
+    performance.to_csv("./output/performance.csv")
+
+# stock_data = stock.get_data()
+def visualization(stock_tick:str, stock_data:pd.DataFrame, upper_threshold:int, lower_threshold:int,trade_plan:pd.DataFrame, transaction:pd.DataFrame ): 
+    from module import Plot
+    Plot.strategy(stock_tick, stock_data, transaction)
+    Plot.indicators_signals(
+        stock_tick, stock_data, trade_plan, upper_threshold, lower_threshold,
+    )
 
 def cal_yearly_return(start_date, end_date, all_profit_percent):
     start = datetime.strptime(start_date, "%Y-%m-%d")
@@ -111,9 +128,8 @@ def get_stock_config(stock_tick):
 if __name__ == "__main__":
     start = datetime.now()
     print("Start Time =", start.strftime("%H:%M:%S"))
-    count = main()
+    main()
     end = datetime.now()
     print("end Time =", end.strftime("%H:%M:%S"))
     print(f"--- {(end-start).seconds/60} m ---")
-    print(f"--- {((end-start).seconds)/count} s @loop ---")
 

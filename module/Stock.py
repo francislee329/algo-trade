@@ -35,7 +35,7 @@ class Stock:
             # stock_data["MA20_slope"] = ta.LINEARREG_SLOPE(stock_data["MA20"], 5)
             # stock_data["MA120_slope"] = ta.LINEARREG_SLOPE(stock_data["MA120"], 5)
 
-    def VPC(df):
+    def VPC(df:pd.DataFrame):
         max = 0
         vpc = pd.DataFrame()
         prices, index_list = [], []
@@ -59,7 +59,7 @@ class Stock:
                 prices.append(price)
                 index_list.append(idx)
 
-    def strategy_LowBuy(self, lower_threshold: int, upper_threshold: int):
+    def strategy_LowBuy(self, lower_threshold: int, upper_threshold: int) -> pd.DataFrame:
         _buy_RSI = self.data["RSI"] < lower_threshold
         _buy_SO = (
             (self.data["K"] < lower_threshold) & (self.data["D"] < lower_threshold) & (self.data["K"] < self.data["D"])
@@ -92,11 +92,17 @@ class Stock:
         _plan = _plan.sort_index()
         return _plan
 
-    def strategy_lowBuy(self, period: int, lower_threshold: int, upper_threshold: int):
+    def strategy_lowBuy(self, period: int, lower_threshold: int, upper_threshold: int)-> pd.DataFrame:
         self.preprocessing_data(period)
         trade_plan = self.strategy_LowBuy(lower_threshold, upper_threshold)
         return trade_plan
 
     def get_data(self):
         return self.data
+    
+    def get_start_date(self): 
+        return self.start_date
+
+    def get_end_date(self): 
+        return self.end_date
 
