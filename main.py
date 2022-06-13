@@ -29,15 +29,19 @@ def main():
     # end_date = "2017-03-26"
     # start_date = "2017-03-26"
     end_date = datetime.now().strftime("%Y-%m-%d")
+<<<<<<< HEAD
     stock = Stock.Stock(stock_tick, start_date, end_date,)  # init
 
+=======
+    stock = Stock.Stock(stock_tick, start_date, end_date,)  # stock class for reuse 
+    
+>>>>>>> b9d8dfb9a37211c68902cff5bc7df5d36087245c
     if IS_OPTIMIZE:
         upper_thresholds = [i for i in range(80, 100, 2)]  # in percent
         lower_thresholds = [i for i in range(10, 30, 2)]  # in percent
         periods = [i for i in range(7, 23, 2)]  # in days
     else:
-        # Optimal parameters
-        periods, lower_thresholds, upper_thresholds = get_stock_config(stock_tick)
+        periods, lower_thresholds, upper_thresholds = get_stock_config(stock_tick) # Optimal parameters
 
     # Add all combination to the queue
     delayed_funcs = []
